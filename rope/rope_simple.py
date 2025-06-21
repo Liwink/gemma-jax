@@ -1,3 +1,5 @@
+"""Apply rotary positional embeddings (RoPE) to the input tensor."""
+
 import jax
 import jax.numpy as jnp
 
@@ -5,7 +7,7 @@ _DEFAULT_BASE = 10000
 
 
 def apply_rope(
-    input: jax.Array,  # (batch_size, seq_len, head_dim)
+    x: jax.Array,  # (batch_size, seq_len, head_dim)
     position: jax.Array,  # (batch_size, seq_len)
     base: int = _DEFAULT_BASE,
 ) -> jax.Array:
@@ -13,14 +15,14 @@ def apply_rope(
     Apply rotary positional embeddings (RoPE) to the input tensor.
 
     Args:
-        input: Input tensor of shape (batch_size, seq_len, head_dim)
+        x: Input tensor of shape (batch_size, seq_len, head_dim)
         position: Position indices of shape (batch_size, seq_len)
         base: Base frequency for the positional embeddings (default: 10000.0)
 
     Returns:
         Tensor of same shape as input with rotary positional embeddings applied
     """
-    head_dim = input.shape[-1]
+    head_dim = x.shape[-1]
     assert head_dim % 2 == 0
     # get freq
     power = -2 * jnp.arange(0, head_dim // 2) / head_dim
@@ -32,8 +34,8 @@ def apply_rope(
     print(cos_freq)
 
     # split into even and odd indices
-    x_even = input[..., ::2]  # (batch_size, seq_len, head_dim // 2)
-    x_odd = input[..., 1::2]  # (batch_size, seq_len, head_dim // 2)
+    x_even = x[..., ::2]  # (batch_size, seq_len, head_dim // 2)
+    x_odd = x[..., 1::2]  # (batch_size, seq_len, head_dim // 2)
 
     # apply rotation
     x_even, x_odd = (
