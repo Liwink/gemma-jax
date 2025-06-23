@@ -7,10 +7,10 @@ from .rope_simple import apply_rope
 class TestApplyRope:
     def test_basic_functionality(self):
         """Test basic rope application with simple inputs."""
-        batch_size, seq_len, head_dim = 2, 4, 8
+        batch_size, seq_len, num_heads, head_dim = 2, 4, 2, 8
 
         # Create test input
-        input_tensor = jnp.ones((batch_size, seq_len, head_dim))
+        input_tensor = jnp.ones((batch_size, seq_len, num_heads, head_dim))
         positions = jnp.arange(seq_len)[None, :].repeat(batch_size, axis=0)
 
         # Apply rope
@@ -25,19 +25,19 @@ class TestApplyRope:
     def test_different_head_dimensions(self):
         """Test rope with different head dimensions."""
         for head_dim in [4, 8, 16, 32, 64]:
-            batch_size, seq_len = 1, 3
+            batch_size, seq_len, num_heads = 1, 3, 2
 
-            input_tensor = jnp.ones((batch_size, seq_len, head_dim))
+            input_tensor = jnp.ones((batch_size, seq_len, num_heads, head_dim))
             positions = jnp.arange(seq_len)[None, :]
 
             result = apply_rope(input_tensor, positions)
-            assert result.shape == (batch_size, seq_len, head_dim)
+            assert result.shape == (batch_size, seq_len, num_heads, head_dim)
 
     def test_custom_base(self):
         """Test rope with custom base parameter."""
-        batch_size, seq_len, head_dim = 1, 2, 4
+        batch_size, seq_len, num_heads, head_dim = 1, 2, 2, 4
 
-        input_tensor = jnp.ones((batch_size, seq_len, head_dim))
+        input_tensor = jnp.ones((batch_size, seq_len, num_heads, head_dim))
         positions = jnp.arange(seq_len)[None, :]
 
         # Test with different bases
@@ -49,7 +49,7 @@ class TestApplyRope:
 
     def test_zero_positions(self):
         """Test rope with zero positions."""
-        batch_size, seq_len, head_dim = 1, 3, 4
+        batch_size, seq_len, num_heads, head_dim = 1, 3, 2, 4
 
         input_tensor = jnp.array(
             [[[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0], [9.0, 10.0, 11.0, 12.0]]]
@@ -65,9 +65,9 @@ class TestApplyRope:
 
     def test_position_independence(self):
         """Test that rope is applied independently to each position."""
-        batch_size, seq_len, head_dim = 1, 2, 4
+        batch_size, seq_len, num_heads, head_dim = 1, 2, 2, 4
 
-        input_tensor = jnp.ones((batch_size, seq_len, head_dim))
+        input_tensor = jnp.ones((batch_size, seq_len, num_heads, head_dim))
 
         # Apply rope to individual positions
         pos_0 = jnp.array([[0, 100]])  # Different positions
@@ -82,12 +82,12 @@ class TestApplyRope:
 
     def test_batch_processing(self):
         """Test that rope works correctly with batched inputs."""
-        batch_size, seq_len, head_dim = 3, 2, 4
+        batch_size, seq_len, num_heads, head_dim = 3, 2, 2, 4
 
         # Create different inputs for each batch
         input_tensor = (
-            jnp.arange(batch_size * seq_len * head_dim)
-            .reshape(batch_size, seq_len, head_dim)
+            jnp.arange(batch_size * seq_len * num_heads * head_dim)
+            .reshape(batch_size, seq_len, num_heads, head_dim)
             .astype(jnp.float32)
         )
 
@@ -109,11 +109,9 @@ class TestApplyRope:
 
     def test_odd_head_dim_error(self):
         """Test that odd head dimensions raise appropriate errors."""
-        batch_size, seq_len = 1, 2
-        # Test with odd head dimension
-        head_dim = 3
+        batch_size, seq_len, num_heads, head_dim = 1, 2, 2, 3
 
-        input_tensor = jnp.ones((batch_size, seq_len, head_dim))
+        input_tensor = jnp.ones((batch_size, seq_len, num_heads, head_dim))
         positions = jnp.arange(seq_len)[None, :]
 
         with pytest.raises(AssertionError):
