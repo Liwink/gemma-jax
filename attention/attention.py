@@ -45,16 +45,25 @@ def scaled_dot_product_attention(
 
     return output
 
+
 class MultiHeadAttention(nn.Module):
     num_heads: int
     head_dim: int
 
     def setup(self):
-        self.q_proj = nn.Dense(self.num_heads * self.head_dim, use_bias=False, name="q_proj")
-        self.k_proj = nn.Dense(self.num_heads * self.head_dim, use_bias=False, name="k_proj")
-        self.v_proj = nn.Dense(self.num_heads * self.head_dim, use_bias=False, name="v_proj")
-        self.o_proj = nn.Dense(self.num_heads * self.head_dim, use_bias=False, name="o_proj")
-    
+        self.q_proj = nn.Dense(
+            self.num_heads * self.head_dim, use_bias=False, name="q_proj"
+        )
+        self.k_proj = nn.Dense(
+            self.num_heads * self.head_dim, use_bias=False, name="k_proj"
+        )
+        self.v_proj = nn.Dense(
+            self.num_heads * self.head_dim, use_bias=False, name="v_proj"
+        )
+        self.o_proj = nn.Dense(
+            self.num_heads * self.head_dim, use_bias=False, name="o_proj"
+        )
+
     def __call__(self, x: jax.Array, mask: jax.Array) -> jax.Array:
         """
         Compute the multi-head attention.
@@ -68,6 +77,9 @@ class MultiHeadAttention(nn.Module):
             seq_len, hidden_size).
         """
         batch_size, seq_len, hidden_size = x.shape
+        assert (
+            hidden_size == self.num_heads * self.head_dim
+        ), "Hidden size must be equal to num_heads * head_dim"
 
         # Project
         q = self.q_proj(x)
@@ -75,14 +87,22 @@ class MultiHeadAttention(nn.Module):
         v = self.v_proj(x)
 
         # Reshape and transpose
-        q = q.reshape(batch_size, seq_len, self.num_heads, self.head_dim).transpose(0, 2, 1, 3)
-        k = k.reshape(batch_size, seq_len, self.num_heads, self.head_dim).transpose(0, 2, 1, 3)
-        v = v.reshape(batch_size, seq_len, self.num_heads, self.head_dim).transpose(0, 2, 1, 3)
-        
+        q = q.reshape(batch_size, seq_len, self.num_heads, self.head_dim).transpose(
+            0, 2, 1, 3
+        )
+        k = k.reshape(batch_size, seq_len, self.num_heads, self.head_dim).transpose(
+            0, 2, 1, 3
+        )
+        v = v.reshape(batch_size, seq_len, self.num_heads, self.head_dim).transpose(
+            0, 2, 1, 3
+        )
+
         output = scaled_dot_product_attention(k, v, q, mask)
 
         # Transpose and reshape back
-        output = output.transpose(0, 2, 1, 3) # (batch_size, seq_len, num_heads, head_dim)
+        output = output.transpose(
+            0, 2, 1, 3
+        )  # (batch_size, seq_len, num_heads, head_dim)
         output = output.reshape(batch_size, seq_len, self.num_heads * self.head_dim)
-        
+
         return self.o_proj(output)
