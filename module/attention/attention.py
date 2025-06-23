@@ -3,6 +3,7 @@
 import jax
 import jax.numpy as jnp
 import flax.linen as nn
+from ..rope.rope_simple import apply_rope
 
 MASK_VALUE = -1e10
 
@@ -64,13 +65,16 @@ class MultiHeadAttention(nn.Module):
             self.num_heads * self.head_dim, use_bias=False, name="o_proj"
         )
 
-    def __call__(self, x: jax.Array, mask: jax.Array) -> jax.Array:
+    def __call__(
+        self, x: jax.Array, mask: jax.Array, position: jax.Array = None
+    ) -> jax.Array:
         """
         Compute the multi-head attention.
 
         Args:
             x (jax.Array): Input tensor of shape (batch_size, seq_len, hidden_size).
             mask (jax.Array): Boolean mask tensor of shape (batch_size, seq_len, seq_len).
+            position (jax.Array): Position indices of shape (batch_size, seq_len).
 
         Returns:
             jax.Array: The output tensor after applying attention, of shape (batch_size,
@@ -86,16 +90,20 @@ class MultiHeadAttention(nn.Module):
         k = self.k_proj(x)
         v = self.v_proj(x)
 
-        # Reshape and transpose
-        q = q.reshape(batch_size, seq_len, self.num_heads, self.head_dim).transpose(
-            0, 2, 1, 3
-        )
-        k = k.reshape(batch_size, seq_len, self.num_heads, self.head_dim).transpose(
-            0, 2, 1, 3
-        )
-        v = v.reshape(batch_size, seq_len, self.num_heads, self.head_dim).transpose(
-            0, 2, 1, 3
-        )
+        # Reshape
+        q = q.reshape(batch_size, seq_len, self.num_heads, self.head_dim)
+        k = k.reshape(batch_size, seq_len, self.num_heads, self.head_dim)
+        v = v.reshape(batch_size, seq_len, self.num_heads, self.head_dim)
+
+        # Apply rope
+        if position is not None:
+            q = apply_rope(q, position)
+            k = apply_rope(k, position)
+
+        # Transpose
+        q = q.transpose(0, 2, 1, 3)
+        k = k.transpose(0, 2, 1, 3)
+        v = v.transpose(0, 2, 1, 3)
 
         output = scaled_dot_product_attention(k, v, q, mask)
 

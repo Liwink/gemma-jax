@@ -6,7 +6,7 @@ import jax
 import jax.numpy as jnp
 import pytest
 import flax.linen as nn
-from attention.attention import (
+from .attention import (
     scaled_dot_product_attention,
     MASK_VALUE,
     MultiHeadAttention,
@@ -369,3 +369,185 @@ class TestMultiHeadAttention:
                 assert jnp.all(jnp.isfinite(grad))
                 # At least some gradients should be non-zero
                 assert jnp.any(grad != 0)
+
+class TestMultiHeadAttentionWithRoPE:
+    def test_rope_integration(self):
+        """Test forward pass with RoPE positional encodings."""
+        batch_size, seq_len, num_heads, head_dim = 2, 8, 4, 64
+        hidden_size = num_heads * head_dim
+
+        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+        
+        # Create inputs with positions
+        x = jax.random.normal(jax.random.PRNGKey(42), (batch_size, seq_len, hidden_size))
+        mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+        position = jnp.arange(seq_len)[None, :].repeat(batch_size, axis=0)
+
+        # Initialize parameters
+        key = jax.random.PRNGKey(0)
+        params = model.init(key, x, mask, position)
+
+        # Forward pass with RoPE
+        output_with_rope = model.apply(params, x, mask, position)
+        
+        # Forward pass without RoPE
+        output_without_rope = model.apply(params, x, mask)
+
+        # Check shapes
+        assert output_with_rope.shape == (batch_size, seq_len, hidden_size)
+        assert output_without_rope.shape == (batch_size, seq_len, hidden_size)
+        
+        # Outputs should be different (RoPE changes the computation)
+        assert not jnp.allclose(output_with_rope, output_without_rope)
+        assert jnp.all(jnp.isfinite(output_with_rope))
+
+    def test_custom_positions(self):
+        """Test attention with custom position indices."""
+        batch_size, seq_len, num_heads, head_dim = 1, 6, 2, 32
+        hidden_size = num_heads * head_dim
+
+        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+        
+        x = jax.random.normal(jax.random.PRNGKey(123), (batch_size, seq_len, hidden_size))
+        mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+        
+        # Test different position patterns
+        sequential_pos = jnp.arange(seq_len)[None, :]
+        reverse_pos = jnp.arange(seq_len)[::-1][None, :]
+        custom_pos = jnp.array([[0, 2, 4, 1, 3, 5]])  # Non-sequential
+
+        key = jax.random.PRNGKey(0)
+        params = model.init(key, x, mask, sequential_pos)
+
+        output_seq = model.apply(params, x, mask, sequential_pos)
+        output_rev = model.apply(params, x, mask, reverse_pos)
+        output_custom = model.apply(params, x, mask, custom_pos)
+
+        # All should have same shape but different values
+        assert output_seq.shape == output_rev.shape == output_custom.shape
+        assert not jnp.allclose(output_seq, output_rev)
+        assert not jnp.allclose(output_seq, output_custom)
+
+    def test_different_sequence_lengths(self):
+        """Test attention with various sequence lengths."""
+        num_heads, head_dim = 4, 32
+        hidden_size = num_heads * head_dim
+        
+        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+        
+        for seq_len in [1, 4, 16, 32]:
+            batch_size = 2
+            x = jax.random.normal(jax.random.PRNGKey(seq_len), (batch_size, seq_len, hidden_size))
+            mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+            position = jnp.arange(seq_len)[None, :].repeat(batch_size, axis=0)
+
+            key = jax.random.PRNGKey(0)
+            params = model.init(key, x, mask, position)
+            output = model.apply(params, x, mask, position)
+
+            assert output.shape == (batch_size, seq_len, hidden_size)
+            assert jnp.all(jnp.isfinite(output))
+
+    def test_causal_mask_with_rope(self):
+        """Test causal attention mask with RoPE."""
+        batch_size, seq_len, num_heads, head_dim = 2, 8, 4, 32
+        hidden_size = num_heads * head_dim
+
+        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+        
+        x = jax.random.normal(jax.random.PRNGKey(999), (batch_size, seq_len, hidden_size))
+        position = jnp.arange(seq_len)[None, :].repeat(batch_size, axis=0)
+        
+        # Create causal mask (lower triangular)
+        causal_mask = jnp.tril(jnp.ones((seq_len, seq_len), dtype=bool))
+        causal_mask = jnp.broadcast_to(causal_mask, (batch_size, seq_len, seq_len))
+        
+        # Full attention mask
+        full_mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+
+        key = jax.random.PRNGKey(0)
+        params = model.init(key, x, full_mask, position)
+
+        output_causal = model.apply(params, x, causal_mask, position)
+        output_full = model.apply(params, x, full_mask, position)
+
+        # Should produce different outputs
+        assert not jnp.allclose(output_causal, output_full)
+        assert jnp.all(jnp.isfinite(output_causal))
+
+    def test_batch_position_independence(self):
+        """Test that different batches with same positions produce same results."""
+        batch_size, seq_len, num_heads, head_dim = 3, 5, 2, 16
+        hidden_size = num_heads * head_dim
+
+        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+        
+        # Same input for all batches
+        x_single = jax.random.normal(jax.random.PRNGKey(777), (1, seq_len, hidden_size))
+        x_batch = jnp.repeat(x_single, batch_size, axis=0)
+        
+        mask_single = jnp.ones((1, seq_len, seq_len), dtype=bool)
+        mask_batch = jnp.repeat(mask_single, batch_size, axis=0)
+        
+        position_single = jnp.arange(seq_len)[None, :]
+        position_batch = jnp.repeat(position_single, batch_size, axis=0)
+
+        key = jax.random.PRNGKey(0)
+        params = model.init(key, x_batch, mask_batch, position_batch)
+
+        output_single = model.apply(params, x_single, mask_single, position_single)
+        output_batch = model.apply(params, x_batch, mask_batch, position_batch)
+
+        # Each batch element should match the single example
+        for i in range(batch_size):
+            assert jnp.allclose(output_single[0], output_batch[i], rtol=1e-5)
+
+    def test_position_extrapolation(self):
+        """Test behavior with positions beyond training range."""
+        batch_size, seq_len, num_heads, head_dim = 1, 4, 2, 32
+        hidden_size = num_heads * head_dim
+
+        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+        
+        x = jax.random.normal(jax.random.PRNGKey(444), (batch_size, seq_len, hidden_size))
+        mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+        
+        # Normal positions
+        normal_pos = jnp.array([[0, 1, 2, 3]])
+        
+        # Large positions (extrapolation test)
+        large_pos = jnp.array([[100, 101, 102, 103]])
+
+        key = jax.random.PRNGKey(0)
+        params = model.init(key, x, mask, normal_pos)
+
+        output_normal = model.apply(params, x, mask, normal_pos)
+        output_large = model.apply(params, x, mask, large_pos)
+
+        # Should handle large positions gracefully
+        assert jnp.all(jnp.isfinite(output_large))
+        assert not jnp.allclose(output_normal, output_large)
+
+    def test_zero_positions(self):
+        """Test attention with all zero positions."""
+        batch_size, seq_len, num_heads, head_dim = 2, 4, 2, 16
+        hidden_size = num_heads * head_dim
+
+        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+        
+        x = jax.random.normal(jax.random.PRNGKey(555), (batch_size, seq_len, hidden_size))
+        mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+        
+        # All positions are zero
+        zero_pos = jnp.zeros((batch_size, seq_len), dtype=jnp.int32)
+        normal_pos = jnp.arange(seq_len)[None, :].repeat(batch_size, axis=0)
+
+        key = jax.random.PRNGKey(0)
+        params = model.init(key, x, mask, normal_pos)
+
+        output_zero = model.apply(params, x, mask, zero_pos)
+        output_normal = model.apply(params, x, mask, normal_pos)
+
+        assert jnp.all(jnp.isfinite(output_zero))
+        # Zero positions should give different results than sequential
+        assert not jnp.allclose(output_zero, output_normal)
