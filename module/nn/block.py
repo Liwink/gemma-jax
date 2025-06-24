@@ -1,0 +1,43 @@
+import jax
+from ..attention.attention import MultiHeadAttention
+from ..mlp.mlp import MLP
+from ..norm.rsm import RSMNorm
+import flax.linen as nn
+
+class Block(nn.Module):
+    hidden_size: int
+    ffn_dim: int
+    num_heads: int
+    head_dim: int
+    
+    def setup(self):
+        self.attention = MultiHeadAttention(self.num_heads, self.head_dim)
+        self.mlp = MLP(self.hidden_size, self.ffn_dim)
+        self.attn_pre_norm = RSMNorm()
+        self.attn_post_norm = RSMNorm()
+        self.mlp_pre_norm = RSMNorm()
+        self.mlp_post_norm = RSMNorm()
+
+    def __call__(self, x: jax.Array, mask: jax.Array, position: jax.Array = None) -> jax.Array:
+        """
+        Apply the transformer block.
+        Gemma 3 uses both pre-norm and post-norm with RSMNorm.
+
+        Args:
+            x (jax.Array): Input tensor of shape (batch_size, seq_len, hidden_size).
+            mask (jax.Array): Boolean mask tensor of shape (batch_size, seq_len, seq_len).
+            position (jax.Array): Position indices of shape (batch_size, seq_len).
+
+        Returns:
+            jax.Array: The output tensor after applying the transformer block, of shape (batch_size,
+            seq_len, hidden_size).
+        """
+        # Apply pre-norm and multi-head attention
+        attn_output = self.attention(self.attn_pre_norm(x), mask, position)
+        # Residual connection
+        x = x + self.attn_post_norm(attn_output)
+        # Apply pre-norm and MLP
+        mlp_output = self.mlp(self.mlp_pre_norm(x))
+        # Residual connection
+        x = x + self.mlp_post_norm(mlp_output)
+        return x
