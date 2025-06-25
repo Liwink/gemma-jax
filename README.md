@@ -20,7 +20,7 @@ Highlight the Gemma 3 key architecture differences from the original transformer
 * [x] RMSNorm
 * [x] GeGLU activation
 * [x] MLP
-* [ ] Transformer block
+* [x] Transformer block
 * [ ] Full Transformer model
 * [ ] Sliding window attention
 * [ ] Grouped-Query Attention
