@@ -204,20 +204,30 @@ class TestScaledDotProductAttention:
 class TestMultiHeadAttention:
     def test_initialization(self):
         """Test MultiHeadAttention initialization."""
-        num_heads, head_dim = 8, 64
-        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+        num_query_heads, num_key_value_heads, head_dim = 8, 8, 64
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
 
         # Check attributes
-        assert model.num_heads == num_heads
+        assert model.num_query_heads == num_query_heads
+        assert model.num_key_value_heads == num_key_value_heads
         assert model.head_dim == head_dim
 
     def test_basic_forward_pass(self):
         """Test basic forward pass through MultiHeadAttention."""
-        batch_size, seq_len, num_heads, head_dim = 2, 4, 8, 32
-        hidden_size = num_heads * head_dim
+        batch_size, seq_len, num_query_heads, head_dim = 2, 4, 8, 32
+        num_key_value_heads = num_query_heads
+        hidden_size = num_query_heads * head_dim
 
         # Initialize model
-        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
 
         # Create inputs
         x = jnp.ones((batch_size, seq_len, hidden_size))
@@ -242,10 +252,15 @@ class TestMultiHeadAttention:
             (4, 16, 8, 64),  # large
         ]
 
-        for batch_size, seq_len, num_heads, head_dim in test_cases:
-            hidden_size = num_heads * head_dim
+        for batch_size, seq_len, num_query_heads, head_dim in test_cases:
+            num_key_value_heads = num_query_heads
+            hidden_size = num_query_heads * head_dim
 
-            model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+            model = MultiHeadAttention(
+                num_query_heads=num_query_heads,
+                num_key_value_heads=num_key_value_heads,
+                head_dim=head_dim,
+            )
             x = jnp.ones((batch_size, seq_len, hidden_size))
             mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
 
@@ -257,10 +272,15 @@ class TestMultiHeadAttention:
 
     def test_causal_masking_mha(self):
         """Test MultiHeadAttention with causal masking."""
-        batch_size, seq_len, num_heads, head_dim = 1, 4, 4, 16
-        hidden_size = num_heads * head_dim
+        batch_size, seq_len, num_query_heads, head_dim = 1, 4, 4, 16
+        num_key_value_heads = num_query_heads
+        hidden_size = num_query_heads * head_dim
 
-        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
         x = (
             jnp.arange(batch_size * seq_len * hidden_size)
             .reshape(batch_size, seq_len, hidden_size)
@@ -279,12 +299,16 @@ class TestMultiHeadAttention:
         assert jnp.all(jnp.isfinite(output))
 
     def test_hidden_size_assertion(self):
-        """Test that hidden_size must equal num_heads * head_dim."""
-        num_heads, head_dim = 8, 32
-        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+        """Test that hidden_size must equal num_query_heads * head_dim."""
+        num_query_heads, num_key_value_heads, head_dim = 8, 8, 32
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
 
         # Correct hidden size
-        correct_hidden_size = num_heads * head_dim
+        correct_hidden_size = num_query_heads * head_dim
         x_correct = jnp.ones((1, 4, correct_hidden_size))
         mask = jnp.ones((1, 4, 4), dtype=bool)
 
@@ -304,9 +328,13 @@ class TestMultiHeadAttention:
 
     def test_parameter_shapes(self):
         """Test that model parameters have correct shapes."""
-        num_heads, head_dim = 6, 32
-        hidden_size = num_heads * head_dim
-        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+        num_query_heads, num_key_value_heads, head_dim = 6, 6, 32
+        hidden_size = num_query_heads * head_dim
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
 
         x = jnp.ones((2, 4, hidden_size))
         mask = jnp.ones((2, 4, 4), dtype=bool)
@@ -315,17 +343,34 @@ class TestMultiHeadAttention:
         params = model.init(key, x, mask)
 
         # Check parameter shapes
-        assert params["params"]["q_proj"]["kernel"].shape == (hidden_size, hidden_size)
-        assert params["params"]["k_proj"]["kernel"].shape == (hidden_size, hidden_size)
-        assert params["params"]["v_proj"]["kernel"].shape == (hidden_size, hidden_size)
-        assert params["params"]["o_proj"]["kernel"].shape == (hidden_size, hidden_size)
+        assert params["params"]["q_proj"]["kernel"].shape == (
+            hidden_size,
+            num_query_heads * head_dim,
+        )
+        assert params["params"]["k_proj"]["kernel"].shape == (
+            hidden_size,
+            num_key_value_heads * head_dim,
+        )
+        assert params["params"]["v_proj"]["kernel"].shape == (
+            hidden_size,
+            num_key_value_heads * head_dim,
+        )
+        assert params["params"]["o_proj"]["kernel"].shape == (
+            num_query_heads * head_dim,
+            hidden_size,
+        )
 
     def test_different_inputs_produce_different_outputs(self):
         """Test that different inputs produce different outputs."""
-        batch_size, seq_len, num_heads, head_dim = 1, 3, 4, 8
-        hidden_size = num_heads * head_dim
+        batch_size, seq_len, num_query_heads, head_dim = 1, 3, 4, 8
+        num_key_value_heads = num_query_heads
+        hidden_size = num_query_heads * head_dim
 
-        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
         mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
 
         # Create different inputs
@@ -343,10 +388,15 @@ class TestMultiHeadAttention:
 
     def test_gradient_flow(self):
         """Test that gradients can flow through the model."""
-        batch_size, seq_len, num_heads, head_dim = 1, 2, 2, 4
-        hidden_size = num_heads * head_dim
+        batch_size, seq_len, num_query_heads, head_dim = 1, 2, 2, 4
+        num_key_value_heads = num_query_heads
+        hidden_size = num_query_heads * head_dim
 
-        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
 
         key = jax.random.PRNGKey(0)
         x = jax.random.normal(key, (batch_size, seq_len, hidden_size))
@@ -370,16 +420,24 @@ class TestMultiHeadAttention:
                 # At least some gradients should be non-zero
                 assert jnp.any(grad != 0)
 
+
 class TestMultiHeadAttentionWithRoPE:
     def test_rope_integration(self):
         """Test forward pass with RoPE positional encodings."""
-        batch_size, seq_len, num_heads, head_dim = 2, 8, 4, 64
-        hidden_size = num_heads * head_dim
+        batch_size, seq_len, num_query_heads, head_dim = 2, 8, 4, 64
+        num_key_value_heads = num_query_heads
+        hidden_size = num_query_heads * head_dim
 
-        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
-        
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
+
         # Create inputs with positions
-        x = jax.random.normal(jax.random.PRNGKey(42), (batch_size, seq_len, hidden_size))
+        x = jax.random.normal(
+            jax.random.PRNGKey(42), (batch_size, seq_len, hidden_size)
+        )
         mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
         position = jnp.arange(seq_len)[None, :].repeat(batch_size, axis=0)
 
@@ -389,28 +447,35 @@ class TestMultiHeadAttentionWithRoPE:
 
         # Forward pass with RoPE
         output_with_rope = model.apply(params, x, mask, position)
-        
+
         # Forward pass without RoPE
         output_without_rope = model.apply(params, x, mask)
 
         # Check shapes
         assert output_with_rope.shape == (batch_size, seq_len, hidden_size)
         assert output_without_rope.shape == (batch_size, seq_len, hidden_size)
-        
+
         # Outputs should be different (RoPE changes the computation)
         assert not jnp.allclose(output_with_rope, output_without_rope)
         assert jnp.all(jnp.isfinite(output_with_rope))
 
     def test_custom_positions(self):
         """Test attention with custom position indices."""
-        batch_size, seq_len, num_heads, head_dim = 1, 6, 2, 32
-        hidden_size = num_heads * head_dim
+        batch_size, seq_len, num_query_heads, head_dim = 1, 6, 2, 32
+        num_key_value_heads = num_query_heads
+        hidden_size = num_query_heads * head_dim
 
-        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
-        
-        x = jax.random.normal(jax.random.PRNGKey(123), (batch_size, seq_len, hidden_size))
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
+
+        x = jax.random.normal(
+            jax.random.PRNGKey(123), (batch_size, seq_len, hidden_size)
+        )
         mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
-        
+
         # Test different position patterns
         sequential_pos = jnp.arange(seq_len)[None, :]
         reverse_pos = jnp.arange(seq_len)[::-1][None, :]
@@ -430,14 +495,20 @@ class TestMultiHeadAttentionWithRoPE:
 
     def test_different_sequence_lengths(self):
         """Test attention with various sequence lengths."""
-        num_heads, head_dim = 4, 32
-        hidden_size = num_heads * head_dim
-        
-        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
-        
+        num_query_heads, num_key_value_heads, head_dim = 4, 4, 32
+        hidden_size = num_query_heads * head_dim
+
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
+
         for seq_len in [1, 4, 16, 32]:
             batch_size = 2
-            x = jax.random.normal(jax.random.PRNGKey(seq_len), (batch_size, seq_len, hidden_size))
+            x = jax.random.normal(
+                jax.random.PRNGKey(seq_len), (batch_size, seq_len, hidden_size)
+            )
             mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
             position = jnp.arange(seq_len)[None, :].repeat(batch_size, axis=0)
 
@@ -450,18 +521,25 @@ class TestMultiHeadAttentionWithRoPE:
 
     def test_causal_mask_with_rope(self):
         """Test causal attention mask with RoPE."""
-        batch_size, seq_len, num_heads, head_dim = 2, 8, 4, 32
-        hidden_size = num_heads * head_dim
+        batch_size, seq_len, num_query_heads, head_dim = 2, 8, 4, 32
+        num_key_value_heads = num_query_heads
+        hidden_size = num_query_heads * head_dim
 
-        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
-        
-        x = jax.random.normal(jax.random.PRNGKey(999), (batch_size, seq_len, hidden_size))
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
+
+        x = jax.random.normal(
+            jax.random.PRNGKey(999), (batch_size, seq_len, hidden_size)
+        )
         position = jnp.arange(seq_len)[None, :].repeat(batch_size, axis=0)
-        
+
         # Create causal mask (lower triangular)
         causal_mask = jnp.tril(jnp.ones((seq_len, seq_len), dtype=bool))
         causal_mask = jnp.broadcast_to(causal_mask, (batch_size, seq_len, seq_len))
-        
+
         # Full attention mask
         full_mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
 
@@ -477,18 +555,23 @@ class TestMultiHeadAttentionWithRoPE:
 
     def test_batch_position_independence(self):
         """Test that different batches with same positions produce same results."""
-        batch_size, seq_len, num_heads, head_dim = 3, 5, 2, 16
-        hidden_size = num_heads * head_dim
+        batch_size, seq_len, num_query_heads, head_dim = 3, 5, 2, 16
+        num_key_value_heads = num_query_heads
+        hidden_size = num_query_heads * head_dim
 
-        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
-        
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
+
         # Same input for all batches
         x_single = jax.random.normal(jax.random.PRNGKey(777), (1, seq_len, hidden_size))
         x_batch = jnp.repeat(x_single, batch_size, axis=0)
-        
+
         mask_single = jnp.ones((1, seq_len, seq_len), dtype=bool)
         mask_batch = jnp.repeat(mask_single, batch_size, axis=0)
-        
+
         position_single = jnp.arange(seq_len)[None, :]
         position_batch = jnp.repeat(position_single, batch_size, axis=0)
 
@@ -504,17 +587,24 @@ class TestMultiHeadAttentionWithRoPE:
 
     def test_position_extrapolation(self):
         """Test behavior with positions beyond training range."""
-        batch_size, seq_len, num_heads, head_dim = 1, 4, 2, 32
-        hidden_size = num_heads * head_dim
+        batch_size, seq_len, num_query_heads, head_dim = 1, 4, 2, 32
+        num_key_value_heads = num_query_heads
+        hidden_size = num_query_heads * head_dim
 
-        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
-        
-        x = jax.random.normal(jax.random.PRNGKey(444), (batch_size, seq_len, hidden_size))
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
+
+        x = jax.random.normal(
+            jax.random.PRNGKey(444), (batch_size, seq_len, hidden_size)
+        )
         mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
-        
+
         # Normal positions
         normal_pos = jnp.array([[0, 1, 2, 3]])
-        
+
         # Large positions (extrapolation test)
         large_pos = jnp.array([[100, 101, 102, 103]])
 
@@ -530,14 +620,21 @@ class TestMultiHeadAttentionWithRoPE:
 
     def test_zero_positions(self):
         """Test attention with all zero positions."""
-        batch_size, seq_len, num_heads, head_dim = 2, 4, 2, 16
-        hidden_size = num_heads * head_dim
+        batch_size, seq_len, num_query_heads, head_dim = 2, 4, 2, 16
+        num_key_value_heads = num_query_heads
+        hidden_size = num_query_heads * head_dim
 
-        model = MultiHeadAttention(num_heads=num_heads, head_dim=head_dim)
-        
-        x = jax.random.normal(jax.random.PRNGKey(555), (batch_size, seq_len, hidden_size))
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
+
+        x = jax.random.normal(
+            jax.random.PRNGKey(555), (batch_size, seq_len, hidden_size)
+        )
         mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
-        
+
         # All positions are zero
         zero_pos = jnp.zeros((batch_size, seq_len), dtype=jnp.int32)
         normal_pos = jnp.arange(seq_len)[None, :].repeat(batch_size, axis=0)
@@ -551,3 +648,328 @@ class TestMultiHeadAttentionWithRoPE:
         assert jnp.all(jnp.isfinite(output_zero))
         # Zero positions should give different results than sequential
         assert not jnp.allclose(output_zero, output_normal)
+
+
+class TestGroupedQueryAttention:
+    def test_gqa_basic_functionality(self):
+        """Test GQA with different numbers of query and key-value heads."""
+        batch_size, seq_len, head_dim = 2, 8, 64
+        num_query_heads, num_key_value_heads = 8, 2
+        hidden_size = num_query_heads * head_dim
+
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
+
+        x = jax.random.normal(
+            jax.random.PRNGKey(42), (batch_size, seq_len, hidden_size)
+        )
+        mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+
+        key = jax.random.PRNGKey(0)
+        params = model.init(key, x, mask)
+        output = model.apply(params, x, mask)
+
+        assert output.shape == (batch_size, seq_len, hidden_size)
+        assert jnp.all(jnp.isfinite(output))
+
+    def test_gqa_parameter_shapes(self):
+        """Test that GQA parameters have correct shapes."""
+        num_query_heads, num_key_value_heads, head_dim = 12, 4, 32
+        hidden_size = num_query_heads * head_dim
+
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
+
+        x = jnp.ones((2, 4, hidden_size))
+        mask = jnp.ones((2, 4, 4), dtype=bool)
+
+        key = jax.random.PRNGKey(0)
+        params = model.init(key, x, mask)
+
+        # Check parameter shapes for GQA
+        assert params["params"]["q_proj"]["kernel"].shape == (
+            hidden_size,
+            num_query_heads * head_dim,
+        )
+        assert params["params"]["k_proj"]["kernel"].shape == (
+            hidden_size,
+            num_key_value_heads * head_dim,
+        )
+        assert params["params"]["v_proj"]["kernel"].shape == (
+            hidden_size,
+            num_key_value_heads * head_dim,
+        )
+        assert params["params"]["o_proj"]["kernel"].shape == (
+            num_query_heads * head_dim,
+            hidden_size,
+        )
+
+    def test_gqa_with_rope(self):
+        """Test GQA with RoPE positional encodings."""
+        batch_size, seq_len, head_dim = 2, 6, 32
+        num_query_heads, num_key_value_heads = 6, 2
+        hidden_size = num_query_heads * head_dim
+
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
+
+        x = jax.random.normal(
+            jax.random.PRNGKey(123), (batch_size, seq_len, hidden_size)
+        )
+        mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+        position = jnp.arange(seq_len)[None, :].repeat(batch_size, axis=0)
+
+        key = jax.random.PRNGKey(0)
+        params = model.init(key, x, mask, position)
+
+        output_with_rope = model.apply(params, x, mask, position)
+        output_without_rope = model.apply(params, x, mask)
+
+        assert output_with_rope.shape == (batch_size, seq_len, hidden_size)
+        assert not jnp.allclose(output_with_rope, output_without_rope)
+        assert jnp.all(jnp.isfinite(output_with_rope))
+
+    def test_gqa_different_ratios(self):
+        """Test GQA with different query-to-key-value head ratios."""
+        test_cases = [
+            (8, 4),  # 2:1 ratio
+            (12, 3),  # 4:1 ratio
+            (16, 2),  # 8:1 ratio
+        ]
+
+        batch_size, seq_len, head_dim = 1, 4, 32
+
+        for num_query_heads, num_key_value_heads in test_cases:
+            hidden_size = num_query_heads * head_dim
+
+            model = MultiHeadAttention(
+                num_query_heads=num_query_heads,
+                num_key_value_heads=num_key_value_heads,
+                head_dim=head_dim,
+            )
+
+            x = jax.random.normal(
+                jax.random.PRNGKey(42), (batch_size, seq_len, hidden_size)
+            )
+            mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+
+            key = jax.random.PRNGKey(0)
+            params = model.init(key, x, mask)
+            output = model.apply(params, x, mask)
+
+            assert output.shape == (batch_size, seq_len, hidden_size)
+            assert jnp.all(jnp.isfinite(output))
+
+
+class TestMultiQueryAttention:
+    def test_mqa_basic_functionality(self):
+        """Test MQA with single key-value head."""
+        batch_size, seq_len, head_dim = 2, 8, 64
+        num_query_heads, num_key_value_heads = 8, 1
+        hidden_size = num_query_heads * head_dim
+
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
+
+        x = jax.random.normal(
+            jax.random.PRNGKey(42), (batch_size, seq_len, hidden_size)
+        )
+        mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+
+        key = jax.random.PRNGKey(0)
+        params = model.init(key, x, mask)
+        output = model.apply(params, x, mask)
+
+        assert output.shape == (batch_size, seq_len, hidden_size)
+        assert jnp.all(jnp.isfinite(output))
+
+    def test_mqa_parameter_shapes(self):
+        """Test that MQA parameters have correct shapes."""
+        num_query_heads, num_key_value_heads, head_dim = 16, 1, 32
+        hidden_size = num_query_heads * head_dim
+
+        model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_key_value_heads,
+            head_dim=head_dim,
+        )
+
+        x = jnp.ones((2, 4, hidden_size))
+        mask = jnp.ones((2, 4, 4), dtype=bool)
+
+        key = jax.random.PRNGKey(0)
+        params = model.init(key, x, mask)
+
+        # Check parameter shapes for MQA
+        assert params["params"]["q_proj"]["kernel"].shape == (
+            hidden_size,
+            num_query_heads * head_dim,
+        )
+        assert params["params"]["k_proj"]["kernel"].shape == (
+            hidden_size,
+            num_key_value_heads * head_dim,
+        )
+        assert params["params"]["v_proj"]["kernel"].shape == (
+            hidden_size,
+            num_key_value_heads * head_dim,
+        )
+        assert params["params"]["o_proj"]["kernel"].shape == (
+            num_query_heads * head_dim,
+            hidden_size,
+        )
+
+    def test_mqa_efficiency_comparison(self):
+        """Test that MQA produces different results than standard MHA."""
+        batch_size, seq_len, head_dim = 2, 4, 32
+        num_query_heads = 8
+        hidden_size = num_query_heads * head_dim
+
+        # MQA model
+        mqa_model = MultiHeadAttention(
+            num_query_heads=num_query_heads, num_key_value_heads=1, head_dim=head_dim
+        )
+
+        # Standard MHA model
+        mha_model = MultiHeadAttention(
+            num_query_heads=num_query_heads,
+            num_key_value_heads=num_query_heads,
+            head_dim=head_dim,
+        )
+
+        x = jax.random.normal(
+            jax.random.PRNGKey(42), (batch_size, seq_len, hidden_size)
+        )
+        mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+
+        key = jax.random.PRNGKey(0)
+        mqa_params = mqa_model.init(key, x, mask)
+        mha_params = mha_model.init(key, x, mask)
+
+        mqa_output = mqa_model.apply(mqa_params, x, mask)
+        mha_output = mha_model.apply(mha_params, x, mask)
+
+        # Should have same shape but different values
+        assert mqa_output.shape == mha_output.shape
+        assert not jnp.allclose(mqa_output, mha_output)
+        assert jnp.all(jnp.isfinite(mqa_output))
+        assert jnp.all(jnp.isfinite(mha_output))
+
+
+class TestScaledDotProductAttentionGQA:
+    def test_gqa_attention_basic(self):
+        """Test scaled dot product attention with different numbers of q and kv heads."""
+        batch_size, seq_len, head_dim = 2, 4, 32
+        num_query_heads, num_key_value_heads = 8, 2
+
+        q = jax.random.normal(
+            jax.random.PRNGKey(1), (batch_size, num_query_heads, seq_len, head_dim)
+        )
+        k = jax.random.normal(
+            jax.random.PRNGKey(2), (batch_size, num_key_value_heads, seq_len, head_dim)
+        )
+        v = jax.random.normal(
+            jax.random.PRNGKey(3), (batch_size, num_key_value_heads, seq_len, head_dim)
+        )
+        mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+
+        result = scaled_dot_product_attention(k, v, q, mask)
+
+        assert result.shape == (batch_size, num_query_heads, seq_len, head_dim)
+        assert jnp.all(jnp.isfinite(result))
+
+    def test_mqa_attention_basic(self):
+        """Test scaled dot product attention with single key-value head."""
+        batch_size, seq_len, head_dim = 2, 4, 32
+        num_query_heads, num_key_value_heads = 8, 1
+
+        q = jax.random.normal(
+            jax.random.PRNGKey(1), (batch_size, num_query_heads, seq_len, head_dim)
+        )
+        k = jax.random.normal(
+            jax.random.PRNGKey(2), (batch_size, num_key_value_heads, seq_len, head_dim)
+        )
+        v = jax.random.normal(
+            jax.random.PRNGKey(3), (batch_size, num_key_value_heads, seq_len, head_dim)
+        )
+        mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+
+        result = scaled_dot_product_attention(k, v, q, mask)
+
+        assert result.shape == (batch_size, num_query_heads, seq_len, head_dim)
+        assert jnp.all(jnp.isfinite(result))
+
+    def test_key_value_head_expansion(self):
+        """Test that key-value heads are correctly expanded to match query heads."""
+        batch_size, seq_len, head_dim = 1, 2, 4
+        num_query_heads, num_key_value_heads = 4, 2
+
+        # Create distinctive k and v values for each head
+        k = jnp.array(
+            [
+                [
+                    [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]],  # head 0
+                    [[2.0, 0.0, 0.0, 0.0], [0.0, 2.0, 0.0, 0.0]],  # head 1
+                ]
+            ]
+        )
+        v = jnp.array(
+            [
+                [
+                    [[10.0, 20.0, 30.0, 40.0], [50.0, 60.0, 70.0, 80.0]],  # head 0
+                    [
+                        [100.0, 200.0, 300.0, 400.0],
+                        [500.0, 600.0, 700.0, 800.0],
+                    ],  # head 1
+                ]
+            ]
+        )
+        q = jnp.ones((batch_size, num_query_heads, seq_len, head_dim))
+        mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+
+        result = scaled_dot_product_attention(k, v, q, mask)
+
+        # Result should have expanded key-value heads
+        assert result.shape == (batch_size, num_query_heads, seq_len, head_dim)
+        assert jnp.all(jnp.isfinite(result))
+
+    def test_attention_head_ratios(self):
+        """Test various query-to-key-value head ratios."""
+        test_cases = [
+            (4, 1),  # 4:1 MQA
+            (6, 2),  # 3:1 GQA
+            (8, 4),  # 2:1 GQA
+            (8, 8),  # 1:1 Standard MHA
+        ]
+
+        batch_size, seq_len, head_dim = 1, 3, 16
+
+        for num_query_heads, num_key_value_heads in test_cases:
+            q = jax.random.normal(
+                jax.random.PRNGKey(1), (batch_size, num_query_heads, seq_len, head_dim)
+            )
+            k = jax.random.normal(
+                jax.random.PRNGKey(2),
+                (batch_size, num_key_value_heads, seq_len, head_dim),
+            )
+            v = jax.random.normal(
+                jax.random.PRNGKey(3),
+                (batch_size, num_key_value_heads, seq_len, head_dim),
+            )
+            mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
+
+            result = scaled_dot_product_attention(k, v, q, mask)
+
+            assert result.shape == (batch_size, num_query_heads, seq_len, head_dim)
+            assert jnp.all(jnp.isfinite(result))

@@ -23,7 +23,7 @@ Highlight the Gemma 3 key architecture differences from the original transformer
 * [x] Transformer block
 * [ ] Full Transformer model
 * [ ] Sliding window attention
-* [ ] Grouped-Query Attention
+* [x] Grouped-Query Attention
 * [ ] Token embedding
 * [ ] Output layer
 * [ ] Config loading
@@ -31,3 +31,13 @@ Highlight the Gemma 3 key architecture differences from the original transformer
 * [ ] Inference, generating next token
 * [ ] Inference benchmark
 * [ ] High performance inference
+
+### Potential Efficiency Improvement
+
+List some of the current inefficient implementation.
+
+* Applying mask after the attention scores are computed is not efficient.
+* The same applies to the sliding window mask.
+* Explore flash attention.
+* More efficient GQA implementation, without repeating the key and value
+  heads for each query head.
