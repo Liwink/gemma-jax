@@ -3,7 +3,7 @@
 import jax
 import jax.numpy as jnp
 import flax.linen as nn
-from ..rope.rope_simple import apply_rope
+from .rope_simple import apply_rope
 
 MASK_VALUE = -1e10
 

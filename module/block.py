@@ -1,7 +1,7 @@
 import jax
-from ..attention.attention import MultiHeadAttention
-from ..mlp.mlp import MLP
-from ..norm.rsm import RSMNorm
+from .attention import MultiHeadAttention
+from .mlp import MLP
+from .rms import RMSNorm
 import flax.linen as nn
 
 class Block(nn.Module):
@@ -13,10 +13,10 @@ class Block(nn.Module):
     def setup(self):
         self.attention = MultiHeadAttention(self.num_heads, self.head_dim)
         self.mlp = MLP(self.hidden_size, self.ffn_dim)
-        self.attn_pre_norm = RSMNorm()
-        self.attn_post_norm = RSMNorm()
-        self.mlp_pre_norm = RSMNorm()
-        self.mlp_post_norm = RSMNorm()
+        self.attn_pre_norm = RMSNorm()
+        self.attn_post_norm = RMSNorm()
+        self.mlp_pre_norm = RMSNorm()
+        self.mlp_post_norm = RMSNorm()
 
     def __call__(self, x: jax.Array, mask: jax.Array, position: jax.Array = None) -> jax.Array:
         """
