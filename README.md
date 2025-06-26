@@ -21,10 +21,10 @@ Highlight the Gemma 3 key architecture differences from the original transformer
 * [x] GeGLU activation
 * [x] MLP
 * [x] Transformer block
-* [ ] Full Transformer model
+* [x] Full Transformer model
 * [ ] Sliding window attention
 * [x] Grouped-Query Attention
-* [ ] Token embedding
+* [x] Token embedding
 * [ ] Output layer
 * [ ] Config loading
 * [ ] Weight loading
