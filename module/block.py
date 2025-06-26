@@ -4,21 +4,27 @@ from .mlp import MLP
 from .rms import RMSNorm
 import flax.linen as nn
 
+
 class Block(nn.Module):
     hidden_size: int
     ffn_dim: int
-    num_heads: int
+    num_query_heads: int
+    num_key_value_heads: int
     head_dim: int
-    
+
     def setup(self):
-        self.attention = MultiHeadAttention(self.num_heads, self.head_dim)
+        self.attention = MultiHeadAttention(
+            self.num_query_heads, self.num_key_value_heads, self.head_dim
+        )
         self.mlp = MLP(self.hidden_size, self.ffn_dim)
         self.attn_pre_norm = RMSNorm()
         self.attn_post_norm = RMSNorm()
         self.mlp_pre_norm = RMSNorm()
         self.mlp_post_norm = RMSNorm()
 
-    def __call__(self, x: jax.Array, mask: jax.Array, position: jax.Array = None) -> jax.Array:
+    def __call__(
+        self, x: jax.Array, mask: jax.Array, position: jax.Array = None
+    ) -> jax.Array:
         """
         Apply the transformer block.
         Gemma 3 uses both pre-norm and post-norm with RSMNorm.
