@@ -18,6 +18,7 @@ class Transformer(nn.Module):
                     self.config.num_query_heads,
                     self.config.num_key_value_heads,
                     self.config.head_dim,
+                    self.config.use_kv_norm,
                 )
                 for _ in range(self.config.num_hidden_layers)
             ]

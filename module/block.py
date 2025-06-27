@@ -11,10 +11,14 @@ class Block(nn.Module):
     num_query_heads: int
     num_key_value_heads: int
     head_dim: int
+    use_kv_norm: bool = False
 
     def setup(self):
         self.attention = MultiHeadAttention(
-            self.num_query_heads, self.num_key_value_heads, self.head_dim
+            self.num_query_heads,
+            self.num_key_value_heads,
+            self.head_dim,
+            self.use_kv_norm,
         )
         self.mlp = MLP(self.hidden_size, self.ffn_dim)
         self.attn_pre_norm = RMSNorm()
