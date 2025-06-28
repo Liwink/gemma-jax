@@ -61,7 +61,7 @@ class MultiHeadAttention(nn.Module):
     num_query_heads: int
     num_key_value_heads: int
     head_dim: int
-    use_kv_norm: bool = False
+    use_qk_norm: bool = False
 
     def setup(self):
         self.q_proj = nn.Dense(
@@ -76,9 +76,9 @@ class MultiHeadAttention(nn.Module):
         self.o_proj = nn.Dense(
             self.num_query_heads * self.head_dim, use_bias=False, name="o_proj"
         )
-        if self.use_kv_norm:
+        if self.use_qk_norm:
             self.k_norm = RMSNorm()
-            self.v_norm = RMSNorm()
+            self.q_norm = RMSNorm()
 
     def __call__(
         self, x: jax.Array, mask: jax.Array, position: jax.Array = None
@@ -110,10 +110,10 @@ class MultiHeadAttention(nn.Module):
         k = k.reshape(batch_size, seq_len, self.num_key_value_heads, self.head_dim)
         v = v.reshape(batch_size, seq_len, self.num_key_value_heads, self.head_dim)
 
-        # Apply kv norm
-        if self.use_kv_norm:
+        # Apply qk norm
+        if self.use_qk_norm:
             k = self.k_norm(k)
-            v = self.v_norm(v)
+            q = self.q_norm(q)
 
         # Apply rope
         if position is not None:

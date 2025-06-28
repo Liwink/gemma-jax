@@ -10,5 +10,5 @@ class TransformerConfig:
     head_dim: int
     rms_norm_eps: float
     rope_theta: int
-    use_kv_norm: bool
+    use_qk_norm: bool
 
