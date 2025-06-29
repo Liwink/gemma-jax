@@ -629,7 +629,8 @@ class TestMultiHeadAttentionWithRoPE:
 
         # Should handle large positions gracefully
         assert jnp.all(jnp.isfinite(output_large))
-        assert not jnp.allclose(output_normal, output_large)
+        # Should be the same as RoPE captures relative positions, not absolute positions
+        assert jnp.allclose(output_normal, output_large)
 
     def test_zero_positions(self):
         """Test attention with all zero positions."""
@@ -709,20 +710,20 @@ class TestGroupedQueryAttention:
         params = model.init(key, x, mask)
 
         # Check parameter shapes for GQA
-        assert params["params"]["q_proj"]["kernel"].shape == (
+        assert params["params"]["q_proj"].shape == (
+            num_query_heads,
             hidden_size,
-            num_query_heads * head_dim,
+            head_dim,
         )
-        assert params["params"]["k_proj"]["kernel"].shape == (
+        assert params["params"]["kv_proj"].shape == (
+            2,
+            num_key_value_heads,
             hidden_size,
-            num_key_value_heads * head_dim,
+            head_dim,
         )
-        assert params["params"]["v_proj"]["kernel"].shape == (
-            hidden_size,
-            num_key_value_heads * head_dim,
-        )
-        assert params["params"]["o_proj"]["kernel"].shape == (
-            num_query_heads * head_dim,
+        assert params["params"]["o_proj"].shape == (
+            num_query_heads,
+            head_dim,
             hidden_size,
         )
 
@@ -833,20 +834,20 @@ class TestMultiQueryAttention:
         params = model.init(key, x, mask)
 
         # Check parameter shapes for MQA
-        assert params["params"]["q_proj"]["kernel"].shape == (
+        assert params["params"]["q_proj"].shape == (
+            num_query_heads,
             hidden_size,
-            num_query_heads * head_dim,
+            head_dim,
         )
-        assert params["params"]["k_proj"]["kernel"].shape == (
+        assert params["params"]["kv_proj"].shape == (
+            2,
+            num_key_value_heads,
             hidden_size,
-            num_key_value_heads * head_dim,
+            head_dim,
         )
-        assert params["params"]["v_proj"]["kernel"].shape == (
-            hidden_size,
-            num_key_value_heads * head_dim,
-        )
-        assert params["params"]["o_proj"]["kernel"].shape == (
-            num_query_heads * head_dim,
+        assert params["params"]["o_proj"].shape == (
+            num_query_heads,
+            head_dim,
             hidden_size,
         )
 
