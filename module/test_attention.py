@@ -204,10 +204,11 @@ class TestScaledDotProductAttention:
 class TestMultiHeadAttention:
     def test_initialization(self):
         """Test MultiHeadAttention initialization."""
-        num_query_heads, num_key_value_heads, head_dim = 8, 8, 64
+        num_query_heads, num_key_value_heads, hidden_size, head_dim = 8, 8, 512, 64
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -226,6 +227,7 @@ class TestMultiHeadAttention:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -259,6 +261,7 @@ class TestMultiHeadAttention:
             model = MultiHeadAttention(
                 num_query_heads=num_query_heads,
                 num_key_value_heads=num_key_value_heads,
+                hidden_size=hidden_size,
                 head_dim=head_dim,
             )
             x = jnp.ones((batch_size, seq_len, hidden_size))
@@ -279,6 +282,7 @@ class TestMultiHeadAttention:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
         x = (
@@ -304,6 +308,7 @@ class TestMultiHeadAttention:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=num_query_heads * head_dim,
             head_dim=head_dim,
         )
 
@@ -333,6 +338,7 @@ class TestMultiHeadAttention:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -343,20 +349,20 @@ class TestMultiHeadAttention:
         params = model.init(key, x, mask)
 
         # Check parameter shapes
-        assert params["params"]["q_proj"]["kernel"].shape == (
+        assert params["params"]["q_proj"].shape == (
+            num_query_heads,
             hidden_size,
-            num_query_heads * head_dim,
+            head_dim,
         )
-        assert params["params"]["k_proj"]["kernel"].shape == (
+        assert params["params"]["kv_proj"].shape == (
+            2,
+            num_key_value_heads,
             hidden_size,
-            num_key_value_heads * head_dim,
+            head_dim,
         )
-        assert params["params"]["v_proj"]["kernel"].shape == (
-            hidden_size,
-            num_key_value_heads * head_dim,
-        )
-        assert params["params"]["o_proj"]["kernel"].shape == (
-            num_query_heads * head_dim,
+        assert params["params"]["o_proj"].shape == (
+            num_query_heads,
+            head_dim,
             hidden_size,
         )
 
@@ -369,6 +375,7 @@ class TestMultiHeadAttention:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
         mask = jnp.ones((batch_size, seq_len, seq_len), dtype=bool)
@@ -395,6 +402,7 @@ class TestMultiHeadAttention:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -414,11 +422,10 @@ class TestMultiHeadAttention:
         # Check that gradients exist and are finite
         assert jnp.isfinite(loss)
         for param_name in grads["params"]:
-            for weight_name in grads["params"][param_name]:
-                grad = grads["params"][param_name][weight_name]
-                assert jnp.all(jnp.isfinite(grad))
-                # At least some gradients should be non-zero
-                assert jnp.any(grad != 0)
+            grad = grads["params"][param_name]
+            assert jnp.all(jnp.isfinite(grad))
+            # At least some gradients should be non-zero
+            assert jnp.any(grad != 0)
 
 
 class TestMultiHeadAttentionWithRoPE:
@@ -431,6 +438,7 @@ class TestMultiHeadAttentionWithRoPE:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -468,6 +476,7 @@ class TestMultiHeadAttentionWithRoPE:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -501,6 +510,7 @@ class TestMultiHeadAttentionWithRoPE:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -528,6 +538,7 @@ class TestMultiHeadAttentionWithRoPE:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -562,6 +573,7 @@ class TestMultiHeadAttentionWithRoPE:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -594,6 +606,7 @@ class TestMultiHeadAttentionWithRoPE:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -627,6 +640,7 @@ class TestMultiHeadAttentionWithRoPE:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -660,6 +674,7 @@ class TestGroupedQueryAttention:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -683,6 +698,7 @@ class TestGroupedQueryAttention:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -719,6 +735,7 @@ class TestGroupedQueryAttention:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -754,6 +771,7 @@ class TestGroupedQueryAttention:
             model = MultiHeadAttention(
                 num_query_heads=num_query_heads,
                 num_key_value_heads=num_key_value_heads,
+                hidden_size=hidden_size,
                 head_dim=head_dim,
             )
 
@@ -780,6 +798,7 @@ class TestMultiQueryAttention:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -803,6 +822,7 @@ class TestMultiQueryAttention:
         model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_key_value_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 
@@ -838,13 +858,17 @@ class TestMultiQueryAttention:
 
         # MQA model
         mqa_model = MultiHeadAttention(
-            num_query_heads=num_query_heads, num_key_value_heads=1, head_dim=head_dim
+            num_query_heads=num_query_heads,
+            num_key_value_heads=1,
+            hidden_size=hidden_size,
+            head_dim=head_dim,
         )
 
         # Standard MHA model
         mha_model = MultiHeadAttention(
             num_query_heads=num_query_heads,
             num_key_value_heads=num_query_heads,
+            hidden_size=hidden_size,
             head_dim=head_dim,
         )
 

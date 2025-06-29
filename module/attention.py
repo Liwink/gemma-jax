@@ -32,11 +32,11 @@ def scaled_dot_product_attention(
     num_query_heads = q.shape[1]
     group_size = num_query_heads // num_key_value_heads
     # TODO: Find more efficient way to do GQA.
-    k = repeat(k, "b h t d -> b (h group_size) t d", group_size=group_size)
-    v = repeat(v, "b h t d -> b (h group_size) t d", group_size=group_size)
+    k = repeat(k, "B H T D -> B (H group_size) T D", group_size=group_size)
+    v = repeat(v, "B H T D -> B (H group_size) T D", group_size=group_size)
 
     attention_scores = jnp.einsum(
-        "b h t d, b h T d -> b h t T", q, k
+        "B H t D, B H T D -> B H t T", q, k
     )  # (batch_size, num_query_heads, seq_len, seq_len)
 
     # Normalize
@@ -52,7 +52,7 @@ def scaled_dot_product_attention(
     attention_weights = jax.nn.softmax(attention_scores, axis=-1)
 
     # Apply attention weights
-    output = jnp.einsum("b h t T, b h T d -> b h t d", attention_weights, v)
+    output = jnp.einsum("B H t T, B H T D -> B H t D", attention_weights, v)
 
     return output
 
@@ -60,21 +60,23 @@ def scaled_dot_product_attention(
 class MultiHeadAttention(nn.Module):
     num_query_heads: int
     num_key_value_heads: int
+    hidden_size: int
     head_dim: int
     use_qk_norm: bool = False
+    initializer: nn.initializers.Initializer = nn.initializers.uniform()
 
     def setup(self):
-        self.q_proj = nn.Dense(
-            self.num_query_heads * self.head_dim, use_bias=False, name="q_proj"
+        self.q_proj = self.param(
+            "q_proj", self.initializer,
+            (self.num_query_heads, self.hidden_size, self.head_dim)
         )
-        self.k_proj = nn.Dense(
-            self.num_key_value_heads * self.head_dim, use_bias=False, name="k_proj"
+        self.kv_proj = self.param(
+            "kv_proj", self.initializer,
+            (2, self.num_key_value_heads, self.hidden_size, self.head_dim)
         )
-        self.v_proj = nn.Dense(
-            self.num_key_value_heads * self.head_dim, use_bias=False, name="v_proj"
-        )
-        self.o_proj = nn.Dense(
-            self.num_query_heads * self.head_dim, use_bias=False, name="o_proj"
+        self.o_proj = self.param(
+            "o_proj", self.initializer,
+            (self.num_query_heads, self.head_dim, self.hidden_size)
         )
         if self.use_qk_norm:
             self.k_norm = RMSNorm()
@@ -101,14 +103,8 @@ class MultiHeadAttention(nn.Module):
         ), "Hidden size must be equal to num_query_heads * head_dim"
 
         # Project
-        q = self.q_proj(x)
-        k = self.k_proj(x)
-        v = self.v_proj(x)
-
-        # Reshape
-        q = q.reshape(batch_size, seq_len, self.num_query_heads, self.head_dim)
-        k = k.reshape(batch_size, seq_len, self.num_key_value_heads, self.head_dim)
-        v = v.reshape(batch_size, seq_len, self.num_key_value_heads, self.head_dim)
+        q = jnp.einsum("B T D, N D H -> B T N H", x, self.q_proj)
+        k, v = jnp.einsum("B T D, C K D H -> C B T K H", x, self.kv_proj)
 
         # Apply qk norm
         if self.use_qk_norm:
@@ -121,18 +117,10 @@ class MultiHeadAttention(nn.Module):
             k = apply_rope(k, position)
 
         # Transpose
-        q = q.transpose(0, 2, 1, 3)
-        k = k.transpose(0, 2, 1, 3)
-        v = v.transpose(0, 2, 1, 3)
+        q = q.transpose(0, 2, 1, 3)  # (batch_size, num_query_heads, seq_len, head_dim)
+        k = k.transpose(0, 2, 1, 3)  # (batch_size, num_key_value_heads, seq_len, head_dim)
+        v = v.transpose(0, 2, 1, 3)  # (batch_size, num_key_value_heads, seq_len, head_dim)
 
-        output = scaled_dot_product_attention(k, v, q, mask)
+        output = scaled_dot_product_attention(k, v, q, mask)  # (batch_size, num_query_heads, seq_len, head_dim)
 
-        # Transpose and reshape back
-        output = output.transpose(
-            0, 2, 1, 3
-        )  # (batch_size, num_query_heads, seq_len, head_dim)
-        output = output.reshape(
-            batch_size, seq_len, self.num_query_heads * self.head_dim
-        )
-
-        return self.o_proj(output)
+        return jnp.einsum("B N T H, N H D -> B T D", output, self.o_proj)

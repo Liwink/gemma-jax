@@ -17,6 +17,7 @@ class Block(nn.Module):
         self.attention = MultiHeadAttention(
             self.num_query_heads,
             self.num_key_value_heads,
+            self.hidden_size,
             self.head_dim,
             self.use_qk_norm,
         )
