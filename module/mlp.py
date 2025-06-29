@@ -1,15 +1,26 @@
 import jax
+import jax.numpy as jnp
 import flax.linen as nn
 
 
 class MLP(nn.Module):
     hidden_size: int
     ffn_dim: int
+    initializer: nn.initializers.Initializer = nn.initializers.uniform()
 
     def setup(self):
-        self.gate_proj = nn.Dense(self.ffn_dim, use_bias=False, name="gate_proj")
-        self.up_proj = nn.Dense(self.ffn_dim, use_bias=False, name="up_proj")
-        self.down_proj = nn.Dense(self.hidden_size, use_bias=False, name="down_proj")
+        self.gate_proj = self.param(
+            "gate_proj", self.initializer,
+            (self.hidden_size, self.ffn_dim)
+        )
+        self.up_proj = self.param(
+            "up_proj", self.initializer,
+            (self.hidden_size, self.ffn_dim)
+        )
+        self.down_proj = self.param(
+            "down_proj", self.initializer,
+            (self.ffn_dim, self.hidden_size)
+        )
 
     def __call__(
         self, x: jax.Array  # (batch_size, seq_len, hidden_size)
@@ -18,9 +29,9 @@ class MLP(nn.Module):
         gated = GELU(x @ W_gate) * (x @ W_up) # (batch_size, seq_len, ffn_dim)
         output = (gated @ W_down) # (batch_size, seq_len, hidden_size)
         """
-        gate = nn.gelu(self.gate_proj(x))  # (batch_size, seq_len, ffn_dim)
-        up = self.up_proj(x)  # (batch_size, seq_len, ffn_dim)
+        gate = nn.gelu(jnp.einsum("B T D, D F -> B T F", x, self.gate_proj))  # (batch_size, seq_len, ffn_dim)
+        up = jnp.einsum("B T D, D F -> B T F", x, self.up_proj)  # (batch_size, seq_len, ffn_dim)
         gated = gate * up  # (batch_size, seq_len, ffn_dim)
-        output = self.down_proj(gated)  # (batch_size, seq_len, hidden_size)
+        output = jnp.einsum("B T F, F D -> B T D", gated, self.down_proj)  # (batch_size, seq_len, hidden_size)
 
         return output

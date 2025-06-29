@@ -47,23 +47,18 @@ class TestMLP:
         assert "down_proj" in param_dict
 
         # Check weight shapes (no bias since use_bias=False)
-        assert param_dict["gate_proj"]["kernel"].shape == (
+        assert param_dict["gate_proj"].shape == (
             512,
             2048,
         )  # hidden_size -> ffn_dim
-        assert param_dict["up_proj"]["kernel"].shape == (
+        assert param_dict["up_proj"].shape == (
             512,
             2048,
         )  # hidden_size -> ffn_dim
-        assert param_dict["down_proj"]["kernel"].shape == (
+        assert param_dict["down_proj"].shape == (
             2048,
             512,
         )  # ffn_dim -> hidden_size
-
-        # Verify no bias parameters
-        assert "bias" not in param_dict["gate_proj"]
-        assert "bias" not in param_dict["up_proj"]
-        assert "bias" not in param_dict["down_proj"]
 
     def test_different_input_sizes(self, mlp_model):
         """Test MLP with various input dimensions."""
@@ -125,7 +120,7 @@ class TestMLP:
         # Check that gradients exist and are finite for all parameters
         param_dict = grads["params"]
         for layer_name in ["gate_proj", "up_proj", "down_proj"]:
-            grad_kernel = param_dict[layer_name]["kernel"]
+            grad_kernel = param_dict[layer_name]
             assert not jnp.isnan(grad_kernel).any(), f"NaN gradient in {layer_name}"
             assert not jnp.isinf(grad_kernel).any(), f"Inf gradient in {layer_name}"
             assert jnp.any(
