@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class TransformerConfig:
+    vocab_size: int
     hidden_size: int
     ffn_dim: int
     num_query_heads: int

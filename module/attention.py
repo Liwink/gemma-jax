@@ -5,6 +5,7 @@ import jax.numpy as jnp
 import flax.linen as nn
 from einops import repeat
 from .rope_simple import apply_rope
+from .rms import RMSNorm
 
 MASK_VALUE = -1e10
 
@@ -97,11 +98,6 @@ class MultiHeadAttention(nn.Module):
             jax.Array: The output tensor after applying attention, of shape (batch_size,
             seq_len, hidden_size).
         """
-        batch_size, seq_len, hidden_size = x.shape
-        assert (
-            hidden_size == self.num_query_heads * self.head_dim
-        ), "Hidden size must be equal to num_query_heads * head_dim"
-
         # Project
         q = jnp.einsum("B T D, N D H -> B T N H", x, self.q_proj)
         k, v = jnp.einsum("B T D, C K D H -> C B T K H", x, self.kv_proj)

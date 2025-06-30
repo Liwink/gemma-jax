@@ -13,6 +13,6 @@ class RMSNorm(nn.Module):
 
         scale = self.param("scale", nn.initializers.zeros_init(), (x.shape[-1]))
 
-        r_rms = jnp.rsqrt(jnp.mean(x**2, axis=-1, keepdims=True) + self.eps)
+        r_rms = jax.lax.rsqrt(jnp.mean(x**2, axis=-1, keepdims=True) + self.eps)
 
         return x * r_rms * (scale + 1)
