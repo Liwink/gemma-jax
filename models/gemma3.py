@@ -1,4 +1,4 @@
-from ..module.config import TransformerConfig
+from module.config import TransformerConfig
 import orbax.checkpoint as ocp
 
 GEMMA_3_1B_CONFIG = TransformerConfig(
@@ -24,7 +24,9 @@ def load_gemma3_params(
 
     model_params = {
         "embedder": {
-            "embedding": raw_params["transformer/embedder"]["input_embedding"]
+            "token_embedding": {
+                "embedding": raw_params["transformer/embedder"]["input_embedding"]
+            }
         },
         "final_norm": {"scale": raw_params["transformer/final_norm"]["scale"]},
     }
@@ -56,8 +58,9 @@ def load_gemma3_params(
                 },
             },
             "mlp": {
-                "gating_einsum": raw_params[f"{layer_name}/mlp/gating_einsum"]["w"],
-                "linear": raw_params[f"{layer_name}/mlp/linear"]["w"],
+                "gate_proj": raw_params[f"{layer_name}/mlp/gating_einsum"]["w"][0].T,
+                "up_proj": raw_params[f"{layer_name}/mlp/gating_einsum"]["w"][1].T,
+                "down_proj": raw_params[f"{layer_name}/mlp/linear"]["w"],
             },
         }
         model_params[f"blocks_{i}"] = block_params
