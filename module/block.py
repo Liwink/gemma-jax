@@ -12,6 +12,8 @@ class Block(nn.Module):
     num_key_value_heads: int
     head_dim: int
     use_qk_norm: bool = False
+    rope_theta: int = 10000
+    rope_scale_factor: float = 1.0
 
     def setup(self):
         self.attention = MultiHeadAttention(
@@ -20,6 +22,8 @@ class Block(nn.Module):
             self.hidden_size,
             self.head_dim,
             self.use_qk_norm,
+            self.rope_theta,
+            self.rope_scale_factor,
         )
         self.mlp = MLP(self.hidden_size, self.ffn_dim)
         self.pre_attention_norm = RMSNorm()

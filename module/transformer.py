@@ -18,8 +18,11 @@ class Transformer(nn.Module):
                 self.config.num_key_value_heads,
                 self.config.head_dim,
                 self.config.use_qk_norm,
+                # TODO: make it configurable
+                rope_theta=10_000 if (i + 1) % 6 != 0 else 1_000_000,
+                rope_scale_factor=1.0 if (i + 1) % 6 != 0 else 8.0,
             )
-            for _ in range(self.config.num_hidden_layers)
+            for i in range(self.config.num_hidden_layers)
         ]
         self.final_norm = RMSNorm()
 

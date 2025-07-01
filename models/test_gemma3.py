@@ -7,6 +7,15 @@ import sentencepiece as spm
 GEMMA_3_1B_PATH = "/Users/liuyihe/Models/gemma-3-flax-gemma3-1b-it-v1/gemma3-1b-it"
 TOKENIZER_PATH = "/Users/liuyihe/Models/gemma-3-flax-gemma3-1b-it-v1/tokenizer.model"
 
+def generate(model, params, tokenizer, text):
+    tokens = jnp.array([tokenizer.encode_as_ids(text)], dtype=jnp.int32)
+    mask = jnp.ones((1, tokens.shape[1], tokens.shape[1]), dtype=jnp.bool_)
+    position = jnp.array([list(range(tokens.shape[1]))], dtype=jnp.int32)
+    
+    logits = model.apply({"params": params}, tokens, mask, position)
+    return tokenizer.decode_ids(logits[0].argmax(axis=-1).tolist())
+    
+
 class TestGemma3:
     def test_gemma3_basics(self):
         model = Transformer(config=GEMMA_3_1B_CONFIG)
@@ -22,3 +31,4 @@ class TestGemma3:
 
         # TODO: Fix the nonsense output.
         print("Output: ", tokenizer.decode_ids(logits[0].argmax(axis=-1).tolist()))
+        assert False

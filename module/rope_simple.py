@@ -4,12 +4,14 @@ import jax
 import jax.numpy as jnp
 
 _DEFAULT_BASE = 10000
+_DEFAULT_SCALE_FACTOR = 1.0
 
 
 def apply_rope(
     x: jax.Array,  # (batch_size, seq_len, num_heads, head_dim)
     position: jax.Array,  # (batch_size, seq_len)
     base: int = _DEFAULT_BASE,
+    scale_factor: float = _DEFAULT_SCALE_FACTOR,
 ) -> jax.Array:
     """
     Apply rotary positional embeddings (RoPE) to the input tensor.
@@ -18,16 +20,19 @@ def apply_rope(
         x: Input tensor of shape (batch_size, seq_len, num_heads, head_dim)
         position: Position indices of shape (batch_size, seq_len)
         base: Base frequency for the positional embeddings (default: 10000.0)
-
+        scale_factor: Scale factor for the positional embeddings (default: 1.0)
     Returns:
         Tensor of same shape as input with rotary positional embeddings applied
     """
     head_dim = x.shape[-1]
     assert head_dim % 2 == 0
     # get freq
-    power = -2 * jnp.arange(0, head_dim // 2) / head_dim
+    power = 2 * jnp.arange(0, head_dim // 2) / head_dim
     timescale = base**power
-    freq = position[..., None] * timescale  # (batch_size, seq_len, head_dim // 2)
+    freq = position[..., None] / timescale[None, None, :]  # (batch_size, seq_len, head_dim // 2)
+
+    if scale_factor > 1.0:
+        freq = freq / scale_factor
 
     # expand freq to (batch_size, seq_len, num_heads, head_dim // 2)
     freq = freq[..., None, :]
