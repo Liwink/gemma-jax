@@ -9,7 +9,7 @@ TOKENIZER_PATH = "/Users/liuyihe/Models/gemma-3-flax-gemma3-1b-it-v1/tokenizer.m
 
 def generate(model, params, tokenizer, text):
     tokens = jnp.array([tokenizer.encode_as_ids(text)], dtype=jnp.int32)
-    mask = jnp.ones((1, tokens.shape[1], tokens.shape[1]), dtype=jnp.bool_)
+    mask = jnp.tril(jnp.ones((1, tokens.shape[1], tokens.shape[1]), dtype=jnp.bool_))
     position = jnp.array([list(range(tokens.shape[1]))], dtype=jnp.int32)
     
     logits = model.apply({"params": params}, tokens, mask, position)
@@ -22,8 +22,8 @@ class TestGemma3:
         params = load_gemma3_params(path=GEMMA_3_1B_PATH)
 
         tokenizer = spm.SentencePieceProcessor(model_file=TOKENIZER_PATH)
-        tokens = jnp.array([tokenizer.encode_as_ids("Hello, world! This is a test.")], dtype=jnp.int32)
-        mask = jnp.ones((1, tokens.shape[1], tokens.shape[1]), dtype=jnp.bool_)
+        tokens = jnp.array([tokenizer.encode_as_ids("This is ")], dtype=jnp.int32)
+        mask = jnp.tril(jnp.ones((1, tokens.shape[1], tokens.shape[1]), dtype=jnp.bool_))
         position = jnp.array([list(range(tokens.shape[1]))], dtype=jnp.int32)
 
         logits = model.apply({"params": params}, tokens, mask, position)
