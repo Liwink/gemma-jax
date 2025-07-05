@@ -21,6 +21,7 @@ class Transformer(nn.Module):
                 # TODO: make it configurable
                 rope_theta=10_000 if (i + 1) % 6 != 0 else 1_000_000,
                 rope_scale_factor=1.0 if (i + 1) % 6 != 0 else 8.0,
+                layer=i,
             )
             for i in range(self.config.num_hidden_layers)
         ]

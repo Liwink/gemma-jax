@@ -14,6 +14,7 @@ class Block(nn.Module):
     use_qk_norm: bool = False
     rope_theta: int = 10000
     rope_scale_factor: float = 1.0
+    layer: int = 0
 
     def setup(self):
         self.attention = MultiHeadAttention(
@@ -25,7 +26,7 @@ class Block(nn.Module):
             self.rope_theta,
             self.rope_scale_factor,
         )
-        self.mlp = MLP(self.hidden_size, self.ffn_dim)
+        self.mlp = MLP(self.hidden_size, self.ffn_dim, layer=self.layer)
         self.pre_attention_norm = RMSNorm()
         self.post_attention_norm = RMSNorm()
         self.pre_ffw_norm = RMSNorm()
@@ -50,9 +51,13 @@ class Block(nn.Module):
         # Apply pre-norm and multi-head attention
         attn_output = self.attention(self.pre_attention_norm(x), mask, position)
         # Residual connection
-        x = x + self.post_attention_norm(attn_output)
+        attn_output = self.post_attention_norm(attn_output)
+        x = x + attn_output
         # Apply pre-norm and MLP
-        mlp_output = self.mlp(self.pre_ffw_norm(x))
+
+        normed_x = self.pre_ffw_norm(x)
+        mlp_output = self.mlp(normed_x)
+        mlp_output = self.post_ffw_norm(mlp_output)
         # Residual connection
-        x = x + self.post_ffw_norm(mlp_output)
+        x = x + mlp_output
         return x

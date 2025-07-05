@@ -7,7 +7,7 @@ from einops import repeat
 from .rope_simple import apply_rope
 from .rms import RMSNorm
 
-MASK_VALUE = -1e10
+MASK_VALUE = -2.3819763e38
 
 
 def scaled_dot_product_attention(
@@ -50,7 +50,7 @@ def scaled_dot_product_attention(
     attention_scores = jnp.where(mask[:, None, :, :], attention_scores, MASK_VALUE)
 
     # Softmax
-    attention_weights = jax.nn.softmax(attention_scores, axis=-1)
+    attention_weights = jax.nn.softmax(attention_scores, axis=-1).astype(k.dtype)
 
     # Apply attention weights
     output = jnp.einsum("B H t T, B H T D -> B H t D", attention_weights, v)

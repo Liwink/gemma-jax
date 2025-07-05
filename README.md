@@ -41,3 +41,23 @@ List some of the current inefficient implementation.
 * Explore flash attention.
 * More efficient GQA implementation, without repeating the key and value
   heads for each query head.
+
+## Debugging Notes
+
+### Logging
+
+* Use `jax.debug.print` to print the tensor values.
+* Use `jax.debug.callback` to save the tensor values to disk.
+
+```python
+def save_metrics_callback(metrics, step=0, prefix="debug"):
+    """Save metrics to disk via callback"""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{prefix}_step_{step}_{timestamp}.jnp"
+
+    jnp.save(filename, metrics)
+    print(f"Saved metrics to {filename}")
+
+jax.debug.callback(save_metrics_callback, x, step=0, prefix="x")
+```
+

@@ -7,6 +7,7 @@ class MLP(nn.Module):
     hidden_size: int
     ffn_dim: int
     initializer: nn.initializers.Initializer = nn.initializers.uniform()
+    layer: int = 0
 
     def setup(self):
         self.gate_proj = self.param(
@@ -29,9 +30,9 @@ class MLP(nn.Module):
         gated = GELU(x @ W_gate) * (x @ W_up) # (batch_size, seq_len, ffn_dim)
         output = (gated @ W_down) # (batch_size, seq_len, hidden_size)
         """
-        gate = nn.gelu(jnp.einsum("B T D, D F -> B T F", x, self.gate_proj))  # (batch_size, seq_len, ffn_dim)
+        g = jnp.einsum("B T D, D F -> B T F", x, self.gate_proj)
+        gate = nn.gelu(g)  # (batch_size, seq_len, ffn_dim)
         up = jnp.einsum("B T D, D F -> B T F", x, self.up_proj)  # (batch_size, seq_len, ffn_dim)
         gated = gate * up  # (batch_size, seq_len, ffn_dim)
         output = jnp.einsum("B T F, F D -> B T D", gated, self.down_proj)  # (batch_size, seq_len, hidden_size)
-
         return output
