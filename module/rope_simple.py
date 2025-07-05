@@ -53,4 +53,4 @@ def apply_rope(
     stacked = jnp.stack(
         [x_even, x_odd], axis=-1
     )  # (batch_size, seq_len, num_heads, head_dim // 2, 2)
-    return stacked.reshape(*stacked.shape[:-2], -1)
+    return stacked.reshape(*stacked.shape[:-2], -1).astype(x.dtype)
