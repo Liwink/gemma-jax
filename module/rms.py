@@ -2,8 +2,9 @@ import jax
 import jax.numpy as jnp
 import flax.linen as nn
 
+
 class RMSNorm(nn.Module):
-    eps: float = 1e-5
+    eps: float = 1e-6
 
     @nn.compact
     def __call__(self, x: jax.Array) -> jax.Array:

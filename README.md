@@ -61,3 +61,41 @@ def save_metrics_callback(metrics, step=0, prefix="debug"):
 jax.debug.callback(save_metrics_callback, x, step=0, prefix="x")
 ```
 
+### Numerical Discrepancy Between Equivalent jnp.einsum Formulations
+
+[Reported issue](https://github.com/jax-ml/jax/issues/29990)
+[Repro](https://colab.research.google.com/drive/1latj_SynZyqWxCKnwlhTegD1RMkRwpNP#scrollTo=KK0eDUboSzDY)
+
+The final logits of this model are different from the official FLAX implementation.
+After tracing the model, the discrepancy starts in the 2nd block MLP.
+Our implementation used separate einsum for gating and up projection, while the offical implementation
+uses a combined einsum.
+
+### Fix Norm Epsilon Discrepancy
+
+The official implementation uses `eps=1e-6`, while our implementation uses `eps=1e-5`.
+
+The following table shows the number of different elements in the input array between the official and our implementation at the first 10 blocks, i.e., `(input_x_official != input_x_ours).sum()`
+
+| Index | Before | After |
+|-------|--------|-------|
+| 0     | 0      | 0     |
+| 1     | 0      | 0     |
+| 2     | 0      | 0     |
+| 3     | 0      | 0     |
+| 4     | 644    | 0     |
+| 5     | 1043   | 0     |
+| 6     | 1100   | 0     |
+| 7     | 1131   | 0     |
+| 8     | 1125   | 0     |
+| 9     | 1132   | 4     |
+| 10    | 1131   | 27    |
+| 11    | 1129   | 153   |
+| 12    | 1129   | 444   |
+| 13    | 1143   | 513   |
+| 14    | 1146   | 579   |
+| 15    | 1140   | 644   |
+| 16    | 1147   | 541   |
+| 17    | 1137   | 682   |
+| 18    | 1145   | 780   |
+| 19    | 1143   | 878   |

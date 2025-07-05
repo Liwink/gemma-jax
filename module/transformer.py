@@ -27,6 +27,7 @@ class Transformer(nn.Module):
         ]
         self.final_norm = RMSNorm()
 
+    @nn.jit
     def __call__(
         self, tokens: jax.Array, mask: jax.Array, position: jax.Array = None
     ) -> jax.Array:

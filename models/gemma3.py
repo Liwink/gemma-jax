@@ -60,6 +60,7 @@ def load_gemma3_params(
             "mlp": {
                 "gate_proj": raw_params[f"{layer_name}/mlp/gating_einsum"]["w"][0].T,
                 "up_proj": raw_params[f"{layer_name}/mlp/gating_einsum"]["w"][1].T,
+                "gating_proj": raw_params[f"{layer_name}/mlp/gating_einsum"]["w"],
                 "down_proj": raw_params[f"{layer_name}/mlp/linear"]["w"],
             },
         }

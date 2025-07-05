@@ -170,3 +170,47 @@ transformer/layer_0/pre_ffw_norm
         storage=StorageMetadata(chunk_shape=(1152,), write_shape=None)
     }
 ```
+
+## Debugging
+
+```python
+prompt = "Hi"
+tokens = tokenizer.encode(prompt)
+mask = jnp.tril(jnp.ones((1, tokens.shape[1], tokens.shape[1]), dtype=jnp.bool_))
+position = jnp.array([list(range(tokens.shape[1]))], dtype=jnp.int32)
+
+logits = model.apply({"params": params}, tokens, mask, position)
+logits_offical = model_offical.apply({"params": params}, tokens, mask, position).logits
+
+logits[:,-1,:][0, 0:10]
+# Array([-19.59076   ,  17.709303  ,  -0.60636026, -19.480303  ,
+#        -6.016681  , -12.628289  ,  -7.8222103 , -16.929409  ,
+#        -18.351505  , -13.402376  ], dtype=float32)
+logits_offical[:,-1,:][0, 0:10]
+# Array([-19.5, 17.625, -0.589844, -19.375, -5.96875, -12.5625,
+#       -7.75, -16.875, -18.25, -13.4375], dtype=bfloat16)
+```
+
+* The outputs are similar, but not exactly the same. Investigate if it's due to the different output types (float32 vs bfloat16).
+
+After changing the dtype to bfloat16, the outputs are closer.
+
+```python
+logits[:,-1,:][0, 0:10]
+# logits dtype:  bfloat16
+# logits:  [-19.5 17.5 -0.566406 -19.375 -5.90625 -12.625 -7.8125 -16.875 -18.25
+#  -13.4375]
+```
+
+
+```python
+x: [-77.5 -0.492188 0.960938 16.75 1.54688 -0.0820312 0.261719 -6.25 1.40625
+ -2.59375]
+attn_output: [-2.1875 0.675781 0.742188 3.23438 -2.5625 -1.42188 -0.625 -3.32812
+ 1.22656 1.21094]
+
+x: [-77.5 -0.492188 0.960938 16.75 1.54688 -0.0820312 0.261719 -6.25 1.40625
+ -2.59375]
+attn_output: [-2.1875 0.671875 0.738281 3.21875 -2.5625 -1.41406 -0.625 -3.32812
+ 1.23438 1.21094]
+```
