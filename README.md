@@ -28,7 +28,7 @@ Highlight the Gemma 3 key architecture differences from the original transformer
 * [x] Output layer
 * [x] Config loading
 * [x] Weight loading
-* [ ] [WIP, Debugging] Inference, generating next token
+* [x] Inference, generating next token
 * [ ] Inference benchmark
 * [ ] High performance inference
 

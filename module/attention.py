@@ -113,8 +113,6 @@ class MultiHeadAttention(nn.Module):
         if position is not None:
             q = apply_rope(q, position, base=self.rope_theta, scale_factor=self.rope_scale_factor)
             k = apply_rope(k, position, base=self.rope_theta, scale_factor=self.rope_scale_factor)
-        # TODO: make it configurable
-        q = q * (self.head_dim**-0.5)
 
         # Transpose
         q = q.transpose(0, 2, 1, 3)  # (batch_size, num_query_heads, seq_len, head_dim)
