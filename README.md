@@ -99,3 +99,15 @@ The following table shows the number of different elements in the input array be
 | 17    | 1137   | 682   |
 | 18    | 1145   | 780   |
 | 19    | 1143   | 878   |
+
+### Numerical Discrepancy is a Red Herring
+
+The previous tests focused on the single token input to exclude Attention module varify the remaining modules.
+I was trying to make the output logits identical for both our implementation and the official implementation.
+However, the hidden state and logits numerical discrepancy turns out to be a red herring.
+Even if they are not identical, the final results after softmax and top_k are the same.
+
+However, if letting the our model to genearte multiple tokens, it starts to repeat the same tokens.
+So I shifted the focus to the attention module, and quickly found an obvious bug.
+The query tensor was being scaled twice, once in the scaled_dot_product_attention function, and once in the MultiHeadAttention module.
+Once it's fixed, the model starts to generate meaningful tokens.
