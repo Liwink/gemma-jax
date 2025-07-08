@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gemma-jax"
+version = "0.0.1"
+description = "A JAX implementation of Gemma"
+readme = "README.md"
+authors = [{ name = "Yihe Liu" }]
+dependencies = [
+    "jax",
+    "jaxlib",
+    "numpy",
+    "sentencepiece",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[project.urls]
+Homepage="https://github.com/liwink/gemma-jax"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["models*", "module*"]
