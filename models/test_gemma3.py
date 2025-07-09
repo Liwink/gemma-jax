@@ -13,23 +13,15 @@ TOKENIZER_PATH = os.path.expanduser(
 )
 
 
-def apply(model, params, tokenizer, text):
-    tokens = jnp.array([tokenizer.encode(text, add_bos=True)], dtype=jnp.int32)
-    mask = jnp.tril(
-        jnp.ones((1, tokens.shape[1], tokens.shape[1]), dtype=jnp.bool_)
-    )
-    position = jnp.array([list(range(tokens.shape[1]))], dtype=jnp.int32)
-    return model.apply({"params": params}, tokens, mask, position)
-
-
 class TestGemma3:
     def test_gemma3_basics(self):
         model = Transformer(config=GEMMA_3_1B_CONFIG)
         params = load_gemma3_params(path=GEMMA_3_1B_PATH)
-
         tokenizer = spm.SentencePieceProcessor(model_file=TOKENIZER_PATH)
+
         text = "I'm a language model, "
-        logits = apply(model, params, tokenizer, text)
+        tokens = jnp.array([tokenizer.encode(text, add_bos=True)], dtype=jnp.int32)
+        logits = model.apply({"params": params}, tokens)
         assert logits.shape == (1, tokens.shape[1], GEMMA_3_1B_CONFIG.vocab_size)
 
 
@@ -39,8 +31,9 @@ if __name__ == "__main__":
 
     tokenizer = spm.SentencePieceProcessor(model_file=TOKENIZER_PATH)
     text = "Eiffel tower is located in"
-    for i in range(10):
-        logits = apply(model, params, tokenizer, text)
+    for i in range(100):
+        tokens = jnp.array([tokenizer.encode(text, add_bos=True)], dtype=jnp.int32)
+        logits = model.apply({"params": params}, tokens)
         _id = logits[0, -1, :].argmax(axis=-1).tolist()
         text += tokenizer.decode_ids(_id)
-        print(text)
+        print("\r" + text, end="", flush=True)

@@ -42,6 +42,19 @@ List some of the current inefficient implementation.
 * More efficient GQA implementation, without repeating the key and value
   heads for each query head.
 
+## Get Started
+
+```python
+model = Transformer(config=GEMMA_3_1B_CONFIG)
+params = load_gemma3_params(path=GEMMA_3_1B_PATH)
+tokenizer = spm.SentencePieceProcessor(model_file=TOKENIZER_PATH)
+tokens = jnp.array([tokenizer.encode(text, add_bos=True)])
+logits = model.apply({"params": params}, tokens)
+next_token_id = logits[0, -1, :].argmax(axis=-1).tolist()
+text += tokenizer.decode_ids(next_token_id)
+print(text)
+```
+
 ## Debugging Notes
 
 ### Logging
