@@ -202,7 +202,6 @@ logits[:,-1,:][0, 0:10]
 #  -13.4375]
 ```
 
-
 ```python
 x: [-77.5 -0.492188 0.960938 16.75 1.54688 -0.0820312 0.261719 -6.25 1.40625
  -2.59375]
@@ -214,3 +213,16 @@ x: [-77.5 -0.492188 0.960938 16.75 1.54688 -0.0820312 0.261719 -6.25 1.40625
 attn_output: [-2.1875 0.671875 0.738281 3.21875 -2.5625 -1.41406 -0.625 -3.32812
  1.23438 1.21094]
 ```
+
+### July 9, 2025
+
+Problem: the model starts repeating again after generating ""Eiffel tower is located in the city of Paris, France."
+
+Compare the tensors of 2 models at different steps.
+
+* the input of the first layer attention is the same
+* the q, k, v of the first layer attention are different
+
+Next steps:
+
+* Manually check the q_proj calculation
